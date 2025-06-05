@@ -1,0 +1,516 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  FormErrorMessage,
+  Input,
+  Select,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  Stack,
+  Heading,
+  Text,
+  useToast,
+  Checkbox,
+  Flex,
+  Divider,
+  Card,
+  CardBody,
+  CardHeader,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+} from '@chakra-ui/react';
+import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useRouter } from 'next/navigation';
+
+// Schéma de validation pour le formulaire de génération de document
+const documentGenerationSchema = z.object({
+  societeId: z.string().min(1, "Veuillez sélectionner une société"),
+  typePvId: z.string().min(1, "Veuillez sélectionner un type de PV"),
+  exercice: z.string().min(4, "L'exercice doit comporter au moins 4 caractères"),
+  montantResultat: z.number().refine(val => val !== 0, {
+    message: "Le montant du résultat ne peut pas être égal à zéro",
+  }),
+  
+  // Informations financières N-1
+  reportANouveauPrecedent: z.number().optional(),
+  reserveLegaleStatutairePrecedent: z.number().optional(),
+  reserveLegaleFacultativePrecedent: z.number().optional(),
+  
+  // Informations financières N (affectations)
+  montantDividendes: z.number().optional(),
+  montantReportANouveau: z.number().optional(),
+  montantReserveLegaleStatutaire: z.number().optional(),
+  montantReserveLegaleFacultative: z.number().optional(),
+  
+  envoyerEmail: z.boolean(),
+  presidentId: z.string().optional(),
+});
+
+type DocumentGenerationFormData = z.infer<typeof documentGenerationSchema>;
+
+interface Societe {
+  id: string;
+  raisonSociale: string;
+}
+
+interface TypePV {
+  id: string;
+  nom: string;
+}
+
+interface AssocieGerant {
+  id: string;
+  nom: string;
+  prenom: string;
+  type: 'associe' | 'gerant';
+  nombreParts?: number;
+  pourcentageParts?: number;
+}
+
+interface DocumentGeneratorProps {
+  societes: Societe[];
+  typesPv: TypePV[];
+}
+
+export default function DocumentGenerator({ societes, typesPv }: DocumentGeneratorProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTypePv, setSelectedTypePv] = useState<string>('');
+  const [associesGerants, setAssociesGerants] = useState<AssocieGerant[]>([]);
+  const [isLoadingPersonnes, setIsLoadingPersonnes] = useState(false);
+  const toast = useToast();
+  const router = useRouter();
+
+  const {
+    handleSubmit,
+    register,
+    control,
+    watch,
+    formState: { errors },
+    setValue,
+  } = useForm<DocumentGenerationFormData>({
+    resolver: zodResolver(documentGenerationSchema),
+    defaultValues: {
+      montantResultat: 0,
+      montantDividendes: 0,
+      reportANouveauPrecedent: 0,
+      reserveLegaleStatutairePrecedent: 0,
+      reserveLegaleFacultativePrecedent: 0,
+      montantReportANouveau: 0,
+      montantReserveLegaleStatutaire: 0,
+      montantReserveLegaleFacultative: 0,
+      envoyerEmail: false,
+    }
+  });
+
+  const watchTypePv = watch('typePvId');
+  const watchMontantResultat = watch('montantResultat');
+  const watchSocieteId = watch('societeId');
+  const watchMontantDividendes = watch('montantDividendes');
+
+  // Le nom du type de PV sélectionné (pour les conditions d'affichage)
+  const selectedTypePvName = typesPv.find(type => type.id === watchTypePv)?.nom.toLowerCase() || '';
+
+  // Vérifier si le type de PV est lié à l'affectation de résultat
+  const isAffectationPv = selectedTypePvName.includes('affectation');
+  
+  // Vérifier si le type de PV est lié aux dividendes ou mixte
+  const isDividendesPv = selectedTypePvName.includes('dividende');
+  const isMixtePv = selectedTypePvName.includes('mixte');
+  
+  // Si c'est un PV d'affectation, ne pas montrer les dividendes
+  // Sinon, montrer les dividendes si c'est un PV de dividendes ou mixte
+  const requiresDividendes = isDividendesPv || isMixtePv;
+
+  // Vérifier si le résultat est déficitaire
+  const isDeficitaire = watchMontantResultat < 0;
+
+  // Charger les associés et gérants quand une société est sélectionnée
+  useEffect(() => {
+    async function fetchAssociesGerants() {
+      if (!watchSocieteId) return;
+      
+      setIsLoadingPersonnes(true);
+      try {
+        // Utiliser directement l'ID dans le chemin de l'URL
+        const response = await fetch(`/api/societes/${watchSocieteId}/personnes`);
+        
+        if (!response.ok) {
+          throw new Error('Erreur lors de la récupération des personnes');
+        }
+        
+        const data = await response.json();
+        
+        // Formater les données pour la liste déroulante
+        const personnes: AssocieGerant[] = [
+          ...data.associes.map((associe: any) => ({
+            id: associe.id,
+            nom: associe.nom,
+            prenom: associe.prenom,
+            nombreParts: associe.nombreParts || 0,
+            pourcentageParts: associe.pourcentageParts || 0,
+            type: 'associe' as const
+          })),
+          ...data.gerants.map((gerant: any) => ({
+            id: gerant.id,
+            nom: gerant.nom,
+            prenom: gerant.prenom,
+            type: 'gerant' as const
+          }))
+        ];
+        
+        setAssociesGerants(personnes);
+      } catch (error) {
+        console.error('Erreur:', error);
+        toast({
+          title: 'Erreur',
+          description: 'Impossible de récupérer les associés et gérants de cette société.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoadingPersonnes(false);
+      }
+    }
+    
+    fetchAssociesGerants();
+  }, [watchSocieteId, toast]);
+
+  const onSubmit: SubmitHandler<DocumentGenerationFormData> = async (data) => {
+    console.log('====== DÉBUT SOUMISSION DU FORMULAIRE DE GÉNÉRATION ======');
+    setIsSubmitting(true);
+    try {
+      // Récupérer le nom du type de PV
+      const typePvObj = typesPv.find(type => type.id === data.typePvId);
+      const typePvName = typePvObj?.nom.toLowerCase() || '';
+      
+      // Log pour le débogage
+      console.log('Type de PV sélectionné:', typePvObj?.nom);
+      console.log('Montant du résultat:', data.montantResultat);
+      console.log('Est déficitaire:', isDeficitaire);
+      
+      // Avertir si le type de PV ne correspond pas au montant (bénéfice/déficit)
+      if ((typePvName.includes('déficitaire') && !isDeficitaire) || 
+          (typePvName.includes('bénéficiaire') && isDeficitaire)) {
+        console.warn('Attention: Le type de PV ne correspond pas au montant du résultat!');
+        if (!confirm("Le type de PV sélectionné ne correspond pas au montant du résultat. Voulez-vous continuer quand même?")) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Vérifier les dividendes si nécessaire
+      if ((typePvName.includes('dividende') || typePvName.includes('mixte'))) {
+        console.log('Type de PV requérant des dividendes. Montant:', data.montantDividendes);
+        if (!data.montantDividendes || data.montantDividendes <= 0) {
+          toast({
+            title: "Erreur de validation",
+            description: "Le montant des dividendes est requis pour ce type de PV",
+            status: "error",
+            duration: 5000,
+            isClosable: true,
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // SIMPLIFICATION: Ne conserver que les données essentielles
+      // et convertir explicitement tous les nombres
+      const dataToSend = {
+        societeId: data.societeId,
+        typePvId: data.typePvId,
+        exercice: data.exercice,
+        montantResultat: Number(data.montantResultat),
+        montantDividendes: data.montantDividendes ? Number(data.montantDividendes) : 0,
+        envoyerEmail: Boolean(data.envoyerEmail),
+        presidentId: data.presidentId || undefined,
+      };
+
+      console.log('Données envoyées à l\'API:', JSON.stringify(dataToSend, null, 2));
+
+      // Envoyer les données à l'API de génération de document
+      console.log('Envoi de la requête à l\'API...');
+      const response = await fetch('/api/documents/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend),
+      });
+
+      // Récupérer la réponse sous forme de texte pour faciliter le débogage
+      const responseText = await response.text();
+      console.log(`Réponse reçue (status: ${response.status})`);
+      console.log(`Contenu de la réponse: ${responseText.slice(0, 500)}${responseText.length > 500 ? '...' : ''}`);
+      
+      // Convertir la réponse en JSON de manière sécurisée
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erreur lors du parsing de la réponse JSON:', parseError);
+        throw new Error(`Erreur lors du traitement de la réponse du serveur. Contenu: ${responseText.substring(0, 100)}...`);
+      }
+
+      // Vérifier si la réponse indique une erreur
+      if (!response.ok) {
+        const errorMsg = result.message || result.error || 'Erreur inconnue lors de la génération du document';
+        console.error('Erreur API:', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      // Afficher un message de succès
+      console.log('Document généré avec succès! ID:', result.document?.id);
+      toast({
+        title: "Document généré",
+        description: "Le document a été généré avec succès.",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+      
+      // Rediriger vers la page de détail du document
+      if (result.document?.id) {
+        console.log('Redirection vers la page du document...');
+        router.push(`/documents/${result.document.id}`);
+      } else {
+        console.warn('Aucun ID de document retourné par l\'API');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la génération du document:', error);
+      toast({
+        title: "Erreur de génération",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors de la génération du document",
+        status: "error",
+        duration: 8000,
+        isClosable: true,
+      });
+    } finally {
+      console.log('====== FIN SOUMISSION DU FORMULAIRE DE GÉNÉRATION ======');
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <Heading size="md">Générer un nouveau document</Heading>
+      </CardHeader>
+      <CardBody>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Stack spacing={4}>
+            <FormControl isInvalid={!!errors.societeId}>
+              <FormLabel>Société</FormLabel>
+              <Select
+                placeholder="Sélectionner une société"
+                {...register('societeId')}
+              >
+                {societes.map((societe) => (
+                  <option key={societe.id} value={societe.id}>
+                    {societe.raisonSociale}
+                  </option>
+                ))}
+              </Select>
+              <FormErrorMessage>{errors.societeId?.message}</FormErrorMessage>
+            </FormControl>
+
+            {watchSocieteId && (
+              <FormControl>
+                <FormLabel>Président de l'assemblée</FormLabel>
+                <Select
+                  placeholder="Sélectionner le président de l'assemblée"
+                  {...register('presidentId')}
+                  isDisabled={isLoadingPersonnes || associesGerants.length === 0}
+                >
+                  {associesGerants.map((personne) => (
+                    <option key={personne.id} value={personne.id}>
+                      {personne.prenom} {personne.nom} ({personne.type === 'associe' ? 'Associé' : 'Gérant'})
+                    </option>
+                  ))}
+                </Select>
+                {isLoadingPersonnes && <Text fontSize="sm" color="gray.500" mt={1}>Chargement des personnes...</Text>}
+                {!isLoadingPersonnes && associesGerants.length === 0 && watchSocieteId && 
+                  <Text fontSize="sm" color="red.500" mt={1}>
+                    Cette société n'a pas d'associés ou de gérants enregistrés
+                  </Text>
+                }
+              </FormControl>
+            )}
+
+            <FormControl isInvalid={!!errors.typePvId}>
+              <FormLabel>Type de PV</FormLabel>
+              <Select
+                placeholder="Sélectionner un type de PV"
+                {...register('typePvId')}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  register('typePvId').onChange(e);
+                  setSelectedTypePv(e.target.value);
+                }}
+              >
+                {typesPv.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.nom}
+                  </option>
+                ))}
+              </Select>
+              <FormErrorMessage>{errors.typePvId?.message}</FormErrorMessage>
+            </FormControl>
+
+            <FormControl isInvalid={!!errors.exercice}>
+              <FormLabel>Exercice</FormLabel>
+              <Input
+                placeholder="Ex: 2025"
+                {...register('exercice')}
+              />
+              <FormErrorMessage>{errors.exercice?.message}</FormErrorMessage>
+            </FormControl>
+
+            <FormControl isInvalid={!!errors.montantResultat}>
+              <FormLabel>Montant du résultat (DH)</FormLabel>
+              <Controller
+                name="montantResultat"
+                control={control}
+                render={({ field }) => (
+                  <NumberInput
+                    {...field}
+                    onChange={(valueString: string, valueNumber: number) => field.onChange(valueNumber)}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                        </Tr>
+                      );
+                    })}
+                  {/* Ligne de total */}
+                  <Tr bgColor="green.50">
+                    <Td fontWeight="bold">TOTAL</Td>
+                    <Td isNumeric fontWeight="bold">
+                      {associesGerants
+                        .filter(p => p.type === 'associe')
+                        .reduce((sum, a) => sum + (a.nombreParts || 0), 0)}
+                    </Td>
+                    <Td isNumeric fontWeight="bold">100.00%</Td>
+                    <Td isNumeric fontWeight="bold">{watchMontantDividendes.toFixed(2)} DH</Td>
+                  </Tr>
+                </Tbody>
+              </Table>
+              
+              {associesGerants.filter(p => p.type === 'associe').length === 0 && (
+                <Text fontSize="sm" color="red.500" p={2}>
+                  Aucun associé trouvé pour cette société. Veuillez d'abord ajouter des associés avec leurs parts sociales.
+                </Text>
+              )}
+            </Box>
+          </Box>
+        )}
+      </>
+    )}
+
+    <FormControl>
+      <FormLabel>Montant à affecter au report à nouveau (DH)</FormLabel>
+      <Controller
+        name="montantReportANouveau"
+        control={control}
+        render={({ field }) => (
+          <NumberInput
+            {...field}
+            onChange={(valueString: string, valueNumber: number) => field.onChange(valueNumber)}
+          >
+            <NumberInputField />
+            <NumberInputStepper>
+              <NumberIncrementStepper />
+              <NumberDecrementStepper />
+            </NumberInputStepper>
+          </NumberInput>
+        )}
+      />
+    </FormControl>
+                    {...field}
+                    onChange={(valueString: string, valueNumber: number) => field.onChange(valueNumber)}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                )}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Montant à affecter à la réserve légale statutaire (DH)</FormLabel>
+              <Controller
+                name="montantReserveLegaleStatutaire"
+                control={control}
+                render={({ field }) => (
+                  <NumberInput
+                    {...field}
+                    onChange={(valueString: string, valueNumber: number) => field.onChange(valueNumber)}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                )}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Montant à affecter à la réserve légale facultative (DH)</FormLabel>
+              <Controller
+                name="montantReserveLegaleFacultative"
+                control={control}
+                render={({ field }) => (
+                  <NumberInput
+                    {...field}
+                    onChange={(valueString: string, valueNumber: number) => field.onChange(valueNumber)}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                )}
+              />
+            </FormControl>
+
+            <Divider my={2} />
+
+            <FormControl>
+              <Checkbox {...register('envoyerEmail')}>
+                Envoyer le document par email à la société
+              </Checkbox>
+            </FormControl>
+
+            <Button
+              mt={4}
+              colorScheme="blue"
+              isLoading={isSubmitting}
+              type="submit"
+            >
+              Générer le document
+            </Button>
+          </Stack>
+        </form>
+      </CardBody>
+    </Card>
+  );
+}

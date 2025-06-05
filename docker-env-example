@@ -1,0 +1,15 @@
+# Variables d'environnement pour Docker
+# Copiez ce fichier vers .env.docker et modifiez selon vos besoins
+
+# Configuration de la base de données
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pv-manager?schema=public
+
+# Configuration de l'application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=votre_clé_secrète_nextauth_ici
+
+# Configuration de l'email (Resend)
+RESEND_API_KEY=votre_clé_api_resend
+EMAIL_FROM=onboarding@resend.dev
+EMAIL_FROM_NAME=PV Manager

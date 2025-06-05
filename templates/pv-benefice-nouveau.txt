@@ -1,0 +1,49 @@
+{{RAISON_SOCIALE}}
+SOCIÉTÉ {{FORME_JURIDIQUE}} AU CAPITAL DE {{CAPITAL_SOCIAL}} DIRHAMS
+SIÈGE SOCIAL : {{SIEGE_SOCIAL}}
+RC : {{RC}} - ICE : {{ICE}} - IF : {{IF}}
+
+PROCÈS-VERBAL DE L'ASSEMBLÉE GÉNÉRALE ORDINAIRE ANNUELLE
+EN DATE DU {{DATE_ASSEMBLEE}}
+
+Le {{DATE_ASSEMBLEE}}, à 10 heures, les associés de la société {{RAISON_SOCIALE}}, société {{FORME_JURIDIQUE}} au capital de {{CAPITAL_SOCIAL}} dirhams, se sont réunis en Assemblée Générale Ordinaire Annuelle au siège social, sur convocation faite par {{PRESIDENT_NOM}}, {{PRESIDENT_TYPE}} de la société.
+
+Il a été établi une feuille de présence qui a été émargée par chaque associé entrant en séance.
+
+L'Assemblée est présidée par {{PRESIDENT_NOM}}, {{PRESIDENT_TYPE}} de la société.
+
+Le Président constate que l'Assemblée est régulièrement constituée et peut valablement délibérer et prendre des décisions à la majorité requise.
+
+Le Président rappelle que l'Assemblée est appelée à délibérer sur l'ordre du jour suivant :
+
+ORDRE DU JOUR
+
+1. Approbation des comptes de l'exercice clos le 31 décembre {{EXERCICE}};
+2. Affectation du résultat bénéficiaire;
+3. Questions diverses.
+
+Le Président donne lecture du rapport de gestion et présente les comptes de l'exercice clos le 31 décembre {{EXERCICE}}.
+
+PREMIÈRE RÉSOLUTION
+
+L'Assemblée Générale, après avoir entendu le rapport de gestion du {{PRESIDENT_TYPE}} de la société, approuve les comptes annuels de l'exercice clos le 31 décembre {{EXERCICE}} tels qu'ils ont été présentés, ainsi que les opérations traduites dans ces comptes ou résumées dans ce rapport.
+
+Ces comptes se traduisent par un bénéfice de {{MONTANT_RESULTAT}}.
+
+CETTE RÉSOLUTION EST ADOPTÉE À L'UNANIMITÉ
+
+DEUXIÈME RÉSOLUTION
+
+L'Assemblée Générale décide d'affecter le bénéfice de l'exercice clos le 31 décembre {{EXERCICE}}, s'élevant à {{MONTANT_RESULTAT}}, comme suit :
+- Report à nouveau : {{MONTANT_RESULTAT}}
+
+CETTE RÉSOLUTION EST ADOPTÉE À L'UNANIMITÉ
+
+L'ordre du jour étant épuisé et personne ne demandant plus la parole, la séance est levée à 12 heures.
+
+De tout ce qui précède, il a été dressé le présent procès-verbal qui a été signé par le Président.
+
+Fait à ...................... le {{DATE_ASSEMBLEE}}
+
+{{PRESIDENT_NOM}}
+{{PRESIDENT_TYPE}} de la société

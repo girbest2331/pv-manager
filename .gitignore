@@ -39,3 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Docker related
+*.tar
+*.tar.gz
+.tmp-*
+
+# Database
+*.sql
+*.sqlite
+*.db
+
+# Generated documents
+/public/documents/*
+/public/uploads/*
+!public/documents/.gitkeep
+!public/uploads/.gitkeep
+
+# Distribution archives
+*.zip

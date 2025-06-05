@@ -1,0 +1,4 @@
+raisonSociale,formeJuridique,siegeSocial,capital,activitePrincipale,email,identifiantFiscal,rc,ice,taxeProfessionnelle,cnss
+SARL EXEMPLE,SARL,"123 Avenue Mohammed V, Casablanca",100000,Commerce,contact@exemple.ma,IF123456,RC123456,ICE123456789,TP12345,CNSS12345
+CASABLANCA DISTRIBUTION,SARL,"45 Zone Industrielle Sidi Bernoussi, Casablanca",500000,Distribution,info@casadistribution.ma,IF654321,RC654321,ICE987654321,TP54321,CNSS54321
+AGADIR PECHE,SA,"12 Port d'Agadir, Agadir",1000000,Pêche,contact@agadirpeche.ma,IF789123,RC789123,ICE456123789,TP78912,CNSS78912

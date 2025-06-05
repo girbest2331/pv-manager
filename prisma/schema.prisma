@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String    @unique
+  emailVerified       DateTime?
+  password            String?
+  image               String?
+  role                Role      @default(COMPTABLE)
+  status              UserStatus @default(PENDING_APPROVAL)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  accounts            Account[]
+  sessions            Session[]
+  
+  // Informations personnelles et professionnelles
+  prenom              String?
+  telephone           String?
+  societeComptable    String?
+  numeroOrdre         String?    // Numéro de l'ordre des experts comptables
+  adresse             String?
+  ville               String?
+  pays                String?
+  
+  // Processus d'approbation
+  approvedBy          String?   // ID de l'administrateur qui a approuvé
+  approvedAt          DateTime?
+  rejectedReason      String?
+  lastLoginAt         DateTime?
+  loginAttempts       Int       @default(0)
+  lastLoginAttemptAt  DateTime?
+  
+  // Relations
+  societes            SocieteUser[]
+  approvalComments    ApprovalComment[]
+  notificationsRecues Notification[] @relation("NotificationsRecues")
+  notificationsEnvoyees Notification[] @relation("NotificationsEnvoyees")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Societe {
+  id                  String     @id @default(cuid())
+  raisonSociale       String
+  formeJuridique      String
+  siegeSocial         String
+  capital             Float
+  activitePrincipale  String?
+  email               String
+  identifiantFiscal   String?    @unique
+  rc                  String?    @unique
+  ice                 String?    @unique
+  taxeProfessionnelle String?
+  cnss                String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  associes            Associe[]
+  documents           Document[]
+  gerants             Gerant[]
+  utilisateurs        SocieteUser[]
+}
+
+model Associe {
+  id               String  @id @default(cuid())
+  cin              String
+  nom              String
+  prenom           String
+  adresse          String
+  nombreParts      Int
+  pourcentageParts Float
+  societeId        String
+  societe          Societe @relation(fields: [societeId], references: [id], onDelete: Cascade)
+
+  @@unique([cin, societeId])
+}
+
+model Gerant {
+  id        String  @id @default(cuid())
+  cin       String
+  nom       String
+  prenom    String
+  adresse   String
+  telephone String?
+  statut    String
+  societeId String
+  societe   Societe @relation(fields: [societeId], references: [id], onDelete: Cascade)
+
+  @@unique([cin, societeId])
+}
+
+model TypePV {
+  id          String     @id @default(cuid())
+  nom         String     @unique
+  description String?
+  template    String
+  documents   Document[]
+}
+
+model Document {
+  id                                String    @id @default(cuid())
+  nom                               String
+  dateCreation                      DateTime  @default(now())
+  exercice                          String
+  montantResultat                   Float
+  montantDividendes                 Float?
+  estDeficitaire                    Boolean
+  cheminDocx                        String
+  cheminPdf                         String?
+  envoye                            Boolean   @default(false)
+  dateEnvoi                         DateTime?
+  presidentId                       String?
+  societeId                         String
+  typePvId                          String
+  reportANouveauPrecedent           Decimal?  @db.Decimal(15, 2)
+  reserveLegaleFacultativePrecedent Decimal?  @db.Decimal(15, 2)
+  montantReportANouveau             Decimal?  @db.Decimal(15, 2)
+  montantReserveLegaleFacultative   Decimal?  @db.Decimal(15, 2)
+  montantReserveLegale              Decimal?  @db.Decimal(15, 2)
+  montantReserveStatutaire          Decimal?  @db.Decimal(15, 2)
+  reserveLegalePrecedent            Decimal?  @db.Decimal(15, 2)
+  reserveStatutairePrecedent        Decimal?  @db.Decimal(15, 2)
+  montantAffecteReportANouveau      Decimal?  @db.Decimal(15, 2)
+  montantAffecteReserveFacultative  Decimal?  @db.Decimal(15, 2)
+  montantAffecteReserveStatutaire   Decimal?  @db.Decimal(15, 2)
+  societe                           Societe   @relation(fields: [societeId], references: [id])
+  typePv                            TypePV    @relation(fields: [typePvId], references: [id])
+}
+
+enum Role {
+  USER
+  COMPTABLE
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING_EMAIL_VERIFICATION  // En attente de vérification d'email
+  PENDING_APPROVAL            // Email vérifié, en attente d'approbation admin
+  APPROVED                    // Compte approuvé et actif
+  REJECTED                    // Compte rejeté par l'administrateur
+  SUSPENDED                   // Compte temporairement suspendu
+}
+
+model SocieteUser {
+  id            String   @id @default(cuid())
+  userId        String
+  societeId     String
+  dateAssigned  DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  societe       Societe  @relation(fields: [societeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, societeId])
+}
+
+model ApprovalComment {
+  id          String   @id @default(cuid())
+  content     String
+  createdAt   DateTime @default(now())
+  userId      String
+  adminId     String
+  isInternal  Boolean  @default(false)  // Si true, visible uniquement pour les admins
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  title       String
+  message     String
+  type        NotificationType
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  senderId    String
+  recipientId String
+  relatedId   String?          // ID facultatif lié à cette notification (e.g., ID de la société)
+  sender      User             @relation(name: "NotificationsEnvoyees", fields: [senderId], references: [id])
+  recipient   User             @relation(name: "NotificationsRecues", fields: [recipientId], references: [id])
+}
+
+enum NotificationType {
+  ACCOUNT_CREATED
+  ACCOUNT_APPROVED
+  ACCOUNT_REJECTED
+  APPROVAL_REQUESTED
+  DOCUMENT_CREATED
+  SYSTEM_NOTIFICATION
+}

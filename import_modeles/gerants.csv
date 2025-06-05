@@ -1,0 +1,4 @@
+raisonSociale,cin,nom,prenom,adresse,telephone,statut
+SARL EXEMPLE,AB123456,ALAMI,Mohammed,"456 Rue des Roses, Casablanca",0612345678,Président
+CASABLANCA DISTRIBUTION,EF456789,TAZI,Karim,"12 Rue Abdelmoumen, Casablanca",0661234567,Gérant
+AGADIR PECHE,IJ345678,BENSOUDA,Ahmed,"23 Rue de la Plage, Agadir",0678901234,Directeur Général

@@ -1,0 +1,82 @@
+{{raisonSociale}}
+
+
+
+{{formeJuridique}}
+CAPITAL SOCIAL {{capital}} DIRHAMS
+SIEGE SOCIAL: {{siegeSocial}}
+                                                                               
+
+PROCES VERBAL DE LA DECISION DES ASSOCIES
+{{raisonSociale}}
+{{formeJuridique}}
+CAPITAL SOCIAL {{capital}} DIRHAMS
+SIEGE SOCIAL : {{siegeSocial}}
+ 
+PROCES VERBAL DE LA DECISION DE REPARTITION DE DIVIDENDES
+ 
+En date du {{dateAssemblee}} à 10 heures
+ 
+{{associes}}
+ 
+Seuls membres de la société à responsabilité limitée existant sous la raison sociale {{raisonSociale}}, se sont réunis en assemblée et ont pris la décision suivante, préalablement il est exposé ce qui suit :
+FEUILLE DE PRESENCE
+ 
+Le Présent procès-verbal sera signé par le président l'assemblée, il n'a pas été dressé de feuille de présence
+
+COMPOSITION DU BUREAU
+
+L'assemblée générale procède à la composition de son bureau :
+{{presidentAssemblee}} préside l'assemblée, et {{autreParticipant}} assiste à l'assemblée ;
+ 
+RAPPEL DE L'ORDRE DU JOUR
+ 
+Le président ouvre la séance, rappel que l'assemblée est réunie, conformément à la loi et aux statuts, en vue de délibérer et statuer sur l'ordre du jour suivants :
+·  Décision de distribution de dividendes
+·  Fixation du montant des dividendes
+·  Répartition des dividendes entre les associés
+·  Question diverse.
+ 
+L'assemblée générale précise que tous les documents prescrits par l'article 70 de la loi du 13 Février 1997, ont été tenus à la disposition des associés au siège social pendant le délai de quinze jours ayant précédé l'assemblée
+ 
+L'assemblée générale a décidé les résolutions suivantes :
+ 
+Première résolution
+                                                                                                                                                                                                                                                                    ·  Décision de distribution de dividendes                                                                                                                                                                                                                                                            
+ 
+L'assemblée générale, après avoir constaté l'existence de réserves distribuables, décide de procéder à une distribution de dividendes.
+ 
+CETTE RESOLUTION EST ADOPTEE
+ 
+Deuxième résolution
+                                                                                                                                                                                                                                                                                                           ·  Fixation du montant des dividendes                                                                                                                                                                                                                                                           
+ 
+ 
+L'assemblée générale décide de fixer le montant total des dividendes à distribuer à la somme de {{montantDividendes}} DHS.
+  
+CETTE RESOLUTION EST ADOPTEE
+ 
+TROISIEME RESOLUTION
+                                                                                                                                                                                                                                                                                                             ·  Répartition des dividendes entre les associés                                                                                                                                                                                                                                                           
+ 
+L'assemblée générale décide de répartir les dividendes entre les associés comme suit :
+
+{{repartitionDividendes}}
+ 
+CETTE RESOLUTION EST ADOPTEE
+                                                                                                                                         
+POUVOIRS
+ 
+                    Tous pouvoirs sont donnés au porteur d'une expédition des présentes afin d'accomplir les formalités prévues par la loi.
+ 
+CETTE RESOLUTION EST ADOPTEE
+ 
+FRAIS
+ 
+Tous les frais des présentes et de leurs suites sont à la charge de la société.
+ 
+Rien n'étant plus à l'ordre du jour, la séance est levée
+ 
+Signé
+ 
+{{signatures}}

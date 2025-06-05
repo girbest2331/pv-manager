@@ -1,0 +1,499 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  FormErrorMessage,
+  Input,
+  Select,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  Stack,
+  Heading,
+  Text,
+  useToast,
+  Checkbox,
+  Flex,
+  Divider,
+  Card,
+  CardBody,
+  CardHeader,
+} from '@chakra-ui/react';
+import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useRouter } from 'next/navigation';
+
+// Schéma de validation pour le formulaire de génération de document
+const documentGenerationSchema = z.object({
+  societeId: z.string().min(1, "Veuillez sélectionner une société"),
+  typePvId: z.string().min(1, "Veuillez sélectionner un type de PV"),
+  exercice: z.string().min(4, "L'exercice doit comporter au moins 4 caractères"),
+  montantResultat: z.number().refine(val => val !== 0, {
+    message: "Le montant du résultat ne peut pas être égal à zéro",
+  }),
+  
+  // Informations financières N-1
+  reportANouveauPrecedent: z.number().optional(),
+  reserveLegaleStatutairePrecedent: z.number().optional(),
+  reserveLegaleFacultativePrecedent: z.number().optional(),
+  
+  // Informations financières N (affectations)
+  montantDividendes: z.number().optional(),
+  montantReportANouveau: z.number().optional(),
+  montantReserveLegaleStatutaire: z.number().optional(),
+  montantReserveLegaleFacultative: z.number().optional(),
+  
+  envoyerEmail: z.boolean(),
+  presidentId: z.string().optional(),
+});
+
+type DocumentGenerationFormData = z.infer<typeof documentGenerationSchema>;
+
+interface Societe {
+  id: string;
+  raisonSociale: string;
+}
+
+interface TypePV {
+  id: string;
+  nom: string;
+}
+
+interface AssocieGerant {
+  id: string;
+  nom: string;
+  prenom: string;
+  type: 'associe' | 'gerant';
+  nombreParts?: number;
+  pourcentageParts?: number;
+}
+
+interface DocumentGeneratorProps {
+  societes: Societe[];
+  typesPv: TypePV[];
+}
+
+export default function DocumentGenerator({ societes, typesPv }: DocumentGeneratorProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTypePv, setSelectedTypePv] = useState<string>('');
+  const [associesGerants, setAssociesGerants] = useState<AssocieGerant[]>([]);
+  const [isLoadingPersonnes, setIsLoadingPersonnes] = useState(false);
+  const toast = useToast();
+  const router = useRouter();
+
+  const {
+    handleSubmit,
+    register,
+    control,
+    watch,
+    formState: { errors },
+    setValue,
+  } = useForm<DocumentGenerationFormData>({
+    resolver: zodResolver(documentGenerationSchema),
+    defaultValues: {
+      montantResultat: 0,
+      montantDividendes: 0,
+      reportANouveauPrecedent: 0,
+      reserveLegaleStatutairePrecedent: 0,
+      reserveLegaleFacultativePrecedent: 0,
+      montantReportANouveau: 0,
+      montantReserveLegaleStatutaire: 0,
+      montantReserveLegaleFacultative: 0,
+      envoyerEmail: false,
+    }
+  });
+
+  const watchTypePv = watch('typePvId');
+  const watchMontantResultat = watch('montantResultat');
+  const watchSocieteId = watch('societeId');
+  const watchMontantDividendes = watch('montantDividendes');
+
+  // Le nom du type de PV sélectionné (pour les conditions d'affichage)
+  const selectedTypePvName = typesPv.find(type => type.id === watchTypePv)?.nom.toLowerCase() || '';
+
+  // Vérifier si le type de PV est lié à l'affectation de résultat
+  const isAffectationPv = selectedTypePvName.includes('affectation');
+  
+  // Vérifier si le type de PV est lié aux dividendes ou mixte
+  const isDividendesPv = selectedTypePvName.includes('dividende');
+  const isMixtePv = selectedTypePvName.includes('mixte');
+  
+  // Si c'est un PV d'affectation, ne pas montrer les dividendes
+  // Sinon, montrer les dividendes si c'est un PV de dividendes ou mixte
+  const requiresDividendes = isDividendesPv || isMixtePv;
+  
+  // Logs pour déboguer l'affichage conditionnel
+  console.log('TypePV sélectionné:', watchTypePv);
+  console.log('Nom du TypePV:', selectedTypePvName);
+  console.log('isAffectationPv:', isAffectationPv);
+  console.log('isDividendesPv:', isDividendesPv);
+  console.log('isMixtePv:', isMixtePv);
+  console.log('Condition pour afficher les sections:', isAffectationPv || isDividendesPv || isMixtePv);
+
+  // Vérifier si le résultat est déficitaire
+  const isDeficitaire = watchMontantResultat < 0;
+
+  // Charger les associés et gérants quand une société est sélectionnée
+  useEffect(() => {
+    if (watchSocieteId) {
+      fetchAssociesGerants();
+    } else {
+      setAssociesGerants([]);
+    }
+  }, [watchSocieteId]);
+
+  // Actualiser le montant du résultat quand necessaire
+  useEffect(() => {
+    if (watchMontantResultat !== 0) {
+      setValue('montantResultat', watchMontantResultat);
+    }
+  }, [watchMontantResultat, setValue]);
+
+  const fetchAssociesGerants = async () => {
+    if (!watchSocieteId) return;
+    
+    setIsLoadingPersonnes(true);
+    
+    try {
+      // Récupérer les associés
+      const associesResponse = await fetch(`/api/societes/${watchSocieteId}/associes`);
+      if (!associesResponse.ok) {
+        throw new Error("Erreur lors de la récupération des associés");
+      }
+      const associes = await associesResponse.json();
+      
+      // Récupérer les gérants
+      const gerantsResponse = await fetch(`/api/societes/${watchSocieteId}/gerants`);
+      if (!gerantsResponse.ok) {
+        throw new Error("Erreur lors de la récupération des gérants");
+      }
+      const gerants = await gerantsResponse.json();
+      
+      // Combiner les deux types de personnes
+      const associesWithType = associes.map((associe: any) => ({
+        ...associe,
+        type: 'associe'
+      }));
+      
+      const gerantsWithType = gerants.map((gerant: any) => ({
+        ...gerant,
+        type: 'gerant'
+      }));
+      
+      setAssociesGerants([...associesWithType, ...gerantsWithType]);
+    } catch (error) {
+      console.error("Erreur:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer les associés et gérants",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoadingPersonnes(false);
+    }
+  };
+
+  const onSubmit: SubmitHandler<DocumentGenerationFormData> = async (data) => {
+    console.log('====== DÉBUT SOUMISSION DU FORMULAIRE DE GÉNÉRATION ======');
+    console.log('Données soumises:', data);
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Convertir les valeurs pour l'API si nécessaire
+      const apiData = {
+        ...data,
+        // S'assurer que les nombres sont bien des nombres
+        montantResultat: Number(data.montantResultat),
+        montantDividendes: data.montantDividendes ? Number(data.montantDividendes) : undefined,
+        reportANouveauPrecedent: data.reportANouveauPrecedent ? Number(data.reportANouveauPrecedent) : undefined,
+        reserveLegaleStatutairePrecedent: data.reserveLegaleStatutairePrecedent ? Number(data.reserveLegaleStatutairePrecedent) : undefined,
+        reserveLegaleFacultativePrecedent: data.reserveLegaleFacultativePrecedent ? Number(data.reserveLegaleFacultativePrecedent) : undefined,
+        montantReportANouveau: data.montantReportANouveau ? Number(data.montantReportANouveau) : undefined,
+        montantReserveLegaleStatutaire: data.montantReserveLegaleStatutaire ? Number(data.montantReserveLegaleStatutaire) : undefined,
+        montantReserveLegaleFacultative: data.montantReserveLegaleFacultative ? Number(data.montantReserveLegaleFacultative) : undefined,
+      };
+      
+      console.log('Données formatées pour l\'API:', apiData);
+      
+      // Appel à l'API pour générer le document
+      const response = await fetch('/api/documents/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiData),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Une erreur est survenue lors de la génération du document');
+      }
+      
+      console.log('Document généré avec succès! ID:', result.document?.id);
+      
+      // Afficher un message de succès
+      toast({
+        title: "Document généré",
+        description: "Le document a été généré avec succès.",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+      
+      // Rediriger vers la page du document
+      router.push(`/documents/${result.document.id}`);
+    } catch (error) {
+      console.error('Erreur:', error);
+      
+      // Afficher un message d'erreur
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors de la génération du document",
+        status: "error",
+        duration: 8000,
+        isClosable: true,
+      });
+    } finally {
+      console.log('====== FIN SOUMISSION DU FORMULAIRE DE GÉNÉRATION ======');
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <Heading size="md">Générer un nouveau document</Heading>
+      </CardHeader>
+      <CardBody>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Stack spacing={4}>
+            <FormControl isInvalid={!!errors.societeId}>
+              <FormLabel>Société</FormLabel>
+              <Select
+                placeholder="Sélectionner une société"
+                {...register('societeId')}
+              >
+                {societes.map((societe) => (
+                  <option key={societe.id} value={societe.id}>
+                    {societe.raisonSociale}
+                  </option>
+                ))}
+              </Select>
+              <FormErrorMessage>{errors.societeId?.message}</FormErrorMessage>
+            </FormControl>
+
+            {watchSocieteId && (
+              <FormControl>
+                <FormLabel>Président de l'assemblée</FormLabel>
+                <Select
+                  placeholder="Sélectionner le président de l'assemblée"
+                  {...register('presidentId')}
+                  isDisabled={isLoadingPersonnes || associesGerants.length === 0}
+                >
+                  {associesGerants.map((personne) => (
+                    <option key={personne.id} value={personne.id}>
+                      {personne.prenom} {personne.nom} ({personne.type === 'associe' ? 'Associé' : 'Gérant'})
+                    </option>
+                  ))}
+                </Select>
+                {isLoadingPersonnes && <Text fontSize="sm" color="gray.500" mt={1}>Chargement des personnes...</Text>}
+                {!isLoadingPersonnes && associesGerants.length === 0 && watchSocieteId && 
+                  <Text fontSize="sm" color="red.500" mt={1}>
+                    Cette société n'a pas d'associés ou de gérants enregistrés
+                  </Text>
+                }
+              </FormControl>
+            )}
+
+            <FormControl isInvalid={!!errors.typePvId}>
+              <FormLabel>Type de PV</FormLabel>
+              <Select
+                placeholder="Sélectionner un type de PV"
+                {...register('typePvId')}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  register('typePvId').onChange(e);
+                  setSelectedTypePv(e.target.value);
+                }}
+              >
+                {typesPv.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.nom}
+                  </option>
+                ))}
+              </Select>
+              <FormErrorMessage>{errors.typePvId?.message}</FormErrorMessage>
+            </FormControl>
+
+            {/* SECTIONS FINANCIÈRES - affichées conditionnellement */}
+            {/* Modifié pour rendre TOUJOURS visibles les sections financières (test) */}
+            {true && (
+              <>
+                {/* SECTION N-1 */}
+                <Divider my={2} />
+                <Box p={3} borderWidth={1} borderRadius="md" bg="gray.50">
+                  <Heading size="sm" mb={2}>Situation financière à la clôture de l'exercice précédent (N-1)</Heading>
+                  <Stack spacing={3}>
+                <FormControl isInvalid={!!errors.reportANouveauPrecedent}>
+                  <FormLabel>Report à nouveau N-1 (DH)</FormLabel>
+                  <Controller
+                    name="reportANouveauPrecedent"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.reportANouveauPrecedent?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!errors.reserveLegaleStatutairePrecedent}>
+                  <FormLabel>Réserve légale/statutaire N-1 (DH)</FormLabel>
+                  <Controller
+                    name="reserveLegaleStatutairePrecedent"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.reserveLegaleStatutairePrecedent?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!errors.reserveLegaleFacultativePrecedent}>
+                  <FormLabel>Réserve légale/facultative N-1 (DH)</FormLabel>
+                  <Controller
+                    name="reserveLegaleFacultativePrecedent"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.reserveLegaleFacultativePrecedent?.message}</FormErrorMessage>
+                </FormControl>
+                  </Stack>
+                </Box>
+
+                {/* SECTION N */}
+                <Divider my={2} />
+                <Box p={3} borderWidth={1} borderRadius="md" bg="gray.50">
+                  <Heading size="sm" mb={2}>Affectation du résultat de l'exercice (N)</Heading>
+                  <Stack spacing={3}>
+                <FormControl isInvalid={!!errors.montantDividendes}>
+                  <FormLabel>Montant à distribuer en dividendes (DH)</FormLabel>
+                  <Controller
+                    name="montantDividendes"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.montantDividendes?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!errors.montantReportANouveau}>
+                  <FormLabel>Montant à affecter au report à nouveau (DH)</FormLabel>
+                  <Controller
+                    name="montantReportANouveau"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.montantReportANouveau?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!errors.montantReserveLegaleStatutaire}>
+                  <FormLabel>Montant à affecter à la réserve légale/statutaire (DH)</FormLabel>
+                  <Controller
+                    name="montantReserveLegaleStatutaire"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.montantReserveLegaleStatutaire?.message}</FormErrorMessage>
+                </FormControl>
+                <FormControl isInvalid={!!errors.montantReserveLegaleFacultative}>
+                  <FormLabel>Montant à affecter à la réserve légale/facultative (DH)</FormLabel>
+                  <Controller
+                    name="montantReserveLegaleFacultative"
+                    control={control}
+                    render={({ field }) => (
+                      <NumberInput {...field} min={0} onChange={(_v: string, n: number) => field.onChange(n)}>
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    )}
+                  />
+                  <FormErrorMessage>{errors.montantReserveLegaleFacultative?.message}</FormErrorMessage>
+                </FormControl>
+                  </Stack>
+                </Box>
+              </>
+            )}
+
+            {/* Checkbox et bouton de soumission */}
+            <FormControl>
+              <Checkbox {...register('envoyerEmail')}>
+                Envoyer le document par email à la société
+              </Checkbox>
+            </FormControl>
+
+            <Button
+              mt={4}
+              colorScheme="blue"
+              isLoading={isSubmitting}
+              type="submit"
+            >
+              Générer le document
+            </Button>
+          </Stack>
+        </form>
+      </CardBody>
+    </Card>
+  );
+}

@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+  # Service PostgreSQL pour la base de données
+  postgres:
+    image: postgres:14-alpine
+    container_name: pv-manager-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pv-manager
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - pv-network
+
+  # Service d'application Next.js
+  app:
+    image: pv-manager-app:latest
+    container_name: pv-manager-app
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pv-manager?schema=public
+      - NEXT_PUBLIC_APP_URL=http://168.231.105.25
+      - NEXTAUTH_URL=http://168.231.105.25
+      - NEXTAUTH_SECRET=87349387438734abcdefghijklmnopqrstuvwxyz12345
+      - NODE_ENV=production
+      - NEXTAUTH_DEBUG=true
+      # Variables supplémentaires pour résoudre les problèmes de session
+      - SKIP_TYPEPV_INIT=true
+    ports:
+      - "80:3000"
+    restart: unless-stopped
+    networks:
+      - pv-network
+    # Augmenter les limites de mémoire pour éviter les problèmes
+    mem_limit: 4g
+    memswap_limit: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    name: pv-manager-postgres-data
+
+networks:
+  pv-network:
+    name: pv-manager-network
+    driver: bridge

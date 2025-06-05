@@ -1,0 +1,90 @@
+Société {{raisonSociale}} {{formeJuridique}}
+
+
+
+{{formeJuridique}}
+CAPITAL SOCIAL {{capital}} DIRHAMS
+SIEGE SOCIAL: {{siegeSocial}}
+                                                                               
+
+PROCES VERBAL DE LA DECISION DES ASSOCIES
+{{raisonSociale}}
+{{formeJuridique}}
+CAPITAL SOCIAL {{capital}} DIRHAMS
+SIEGE SOCIAL : {{siegeSocial}}
+ 
+PROCES VERBAL DE LA DECISION DES ASSOCIES
+ 
+En date du {{dateAssemblee}} à 10 heures
+ 
+{{associes}}
+ 
+Seuls membres de la société à responsabilité limitée existant sous la raison sociale {{raisonSociale}}, se sont réunis en assemblée et ont pris la décision suivante, préalablement il est exposé ce qui suit :
+FEUILLE DE PRESENCE
+ 
+Le Présent procès-verbal sera signé par le président l'assemblée, il n'a pas été dressé de feuille de présence
+
+COMPOSITION DU BUREAU
+
+L'assemblée générale procède à la composition de son bureau :
+{{presidentAssemblee}} préside l'assemblée, et {{autreParticipant}} assiste à l'assemblée ;
+ 
+RAPPEL DE L'ORDRE DU JOUR
+ 
+Le président ouvre la séance, rappel que l'assemblée est réunie, conformément à la loi et aux statuts, en vue de délibérer et statuer sur l'ordre du jour suivants :
+·  Lecture et approbation du rapport de gestion de l'exercice {{exercice}} ;
+·  Approbation des comptes de l'exercice {{exercice}} ;
+·  Affectation des résultats de l'exercice {{exercice}}
+·  Question diverse.
+ 
+L'assemblée générale précise que tous les documents prescrits par l'article 70 de la loi du 13 Février 1997, ont été tenus à la disposition des associés au siège social pendant le délai de quinze jours ayant précédé l'assemblée
+ 
+L'assemblée générale a décidé les résolutions suivantes :
+ 
+Première résolution
+                                                                                                                                                                                                                                                                    ·  Lecture et approbation du rapport de gestion pour l'exercice {{exercice}}                                                                                                                                                                                                                                                            
+ 
+L'assemblée générale a fait la lecture du rapport de gestion concernant l'exercice {{exercice}} et l'approuve expressément dans toutes ses parties.
+ 
+CETTE RESOLUTION EST ADOPTEE
+ 
+Deuxième résolution
+                                                                                                                                                                                                                                                                                                           ·  Approbation des comptes de l'exercice {{exercice}}                                                                                                                                                                                                                                                           
+ 
+ 
+L'assemblée générale analyse les états de synthèse et l'inventaire de l'exercice {{exercice}} et les approuve expressément dans leurs parties. Lesquels se soldent respectivement par
+ Résultat                 : + {{montantResultat}} DHS 
+ Report à nouveau  : {{reportANouveau}} DHS
+ Réserve légale       : {{reserveLegale}} DHS
+  
+CETTE RESOLUTION EST ADOPTEE
+ 
+TROISIEME RESOLUTION
+                                                                                                                                                                                                                                                                                                             ·  Affectation des résultats de l'exercice {{exercice}}                                                                                                                                                                                                                                                           
+ 
+L'assemblée générale décide d'affecter le résultat bénéficiaire ({{montantResultat}} DHS) comme suit
+ Réserve légale      : {{affectationReserveLegale}} DHS
+ Report à nouveau : {{affectationReportANouveau}} DHS
+ 
+Par conséquence les nouveaux soldes seront comme suit :
+ Réserve légale      : {{nouveauSoldeReserveLegale}} DHS
+ Report à nouveau : {{nouveauSoldeReportANouveau}} DHS
+ Résultat                 : 0.00 DHS 
+ 
+CETTE RESOLUTION EST ADOPTEE
+                                                                                                                                         
+POUVOIRS
+ 
+                    Tous pouvoirs sont donnés au porteur d'une expédition des présentes afin d'accomplir les formalités prévues par la loi.
+ 
+CETTE RESOLUTION EST ADOPTEE
+ 
+FRAIS
+ 
+Tous les frais des présentes et de leurs suites sont à la charge de la société.
+ 
+Rien n'étant plus à l'ordre du jour, la séance est levée
+ 
+Signé
+ 
+{{signatures}}

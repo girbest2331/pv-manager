@@ -1,0 +1,8 @@
+raisonSociale,cin,nom,prenom,adresse,nombreParts,pourcentageParts
+SARL EXEMPLE,AB123456,ALAMI,Mohammed,"456 Rue des Roses, Casablanca",500,50
+SARL EXEMPLE,CD789012,BENNANI,Sara,"789 Boulevard Anfa, Casablanca",500,50
+CASABLANCA DISTRIBUTION,EF456789,TAZI,Karim,"12 Rue Abdelmoumen, Casablanca",700,70
+CASABLANCA DISTRIBUTION,GH012345,LAHLOU,Fatima,"56 Avenue Hassan II, Casablanca",300,30
+AGADIR PECHE,IJ345678,BENSOUDA,Ahmed,"23 Rue de la Plage, Agadir",400,40
+AGADIR PECHE,KL678901,BOUALAM,Nadia,"45 Boulevard Mohamed V, Agadir",400,40
+AGADIR PECHE,MN234567,CHRAIBI,Youssef,"78 Avenue des FAR, Agadir",200,20

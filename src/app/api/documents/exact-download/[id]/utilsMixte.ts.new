@@ -1,0 +1,438 @@
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType } from 'docx';
+import * as fs from 'fs';
+
+/**
+ * Génère un document DOCX pour un PV mixte (structure manuelle, style "exact")
+ * @param societeInfo Informations sur la société
+ * @param documentInfo Informations sur le document (exercice, montants, etc.)
+ * @param associes Liste des associés (nom, prénom, nombreParts)
+ * @param outputPath Chemin du fichier DOCX à générer
+ * @param gerants Liste des gérants de la société
+ */
+export async function generateMixteDocxExact(
+  societeInfo: any,
+  documentInfo: any,
+  associes: Array<{ nom: string; prenom: string; nombreParts: number; montantDividende?: number; cin?: string }>,
+  outputPath: string,
+  gerants: Array<{ nom: string; prenom: string; statut?: string }> = []
+) {
+  // LOG DEBUG : génération MIXTE EXACT
+  console.log('[MIXTE DOCX] Génération pour documentInfo:', documentInfo.id);
+
+  // Définir une fonction pour créer du texte coloré en rouge
+  const redText = (text: string) => new TextRun({ text, color: 'C00000' });
+  
+  // Fonction pour formater les montants
+  const formatMontant = (montant: number): string => {
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(montant);
+  };
+  
+  // --- Infos associés et société ---
+  console.log('[DEBUG] societeInfo.gerants:', societeInfo.gerants);
+  console.log('[DEBUG] gerants (paramètre direct):', gerants);
+  
+  // IMPORTANT: Utiliser les gerants passés en paramètre plutôt que societeInfo.gerants
+  const premierGerant = gerants?.[0] || {};
+  
+  // Construction du nom du président - même logique que prévisualisation HTML
+  const presidentNom = premierGerant?.nom 
+    ? `${premierGerant.prenom || ''} ${premierGerant.nom}`.trim() 
+    : documentInfo.presidente || 'Le président';
+    
+  // Construction du nom du secrétaire
+  const secretaireNom = documentInfo.secretaire || 'Le secrétaire';
+
+  // Calcul du résultat en DHS
+  const montantResultat = Number(documentInfo.montantResultat || 0);
+  
+  // Récupération des montants pour les réserves et report à nouveau
+  const reportANouveau = documentInfo.montantReportANouveau ? Number(documentInfo.montantReportANouveau) : 0;
+  const reserveStatutaire = documentInfo.montantReserveStatutaire ? Number(documentInfo.montantReserveStatutaire) : 0;
+  const reserveFacultative = documentInfo.montantReserveLegaleFacultative ? Number(documentInfo.montantReserveLegaleFacultative) : 0;
+
+  // Récupération des montants précédents
+  const reportANouveauPrecedent = documentInfo.reportANouveauPrecedent ? Number(documentInfo.reportANouveauPrecedent) : 0;
+  const reserveStatutairePrecedent = documentInfo.reserveStatutairePrecedent ? Number(documentInfo.reserveStatutairePrecedent) : 0;
+  const reserveFacultativePrecedent = documentInfo.reserveLegaleFacultativePrecedent ? Number(documentInfo.reserveLegaleFacultativePrecedent) : 0;
+  
+  // Calcul du montant des dividendes
+  const montantDividendes = documentInfo.montantDividendes ? Number(documentInfo.montantDividendes) : 0;
+
+  // Calcul des montants finaux pour les réserves
+  const reportANouveauFinal = reportANouveauPrecedent + reportANouveau;
+  const reserveStatutaireFinal = reserveStatutairePrecedent + reserveStatutaire;
+  const reserveFacultativeFinal = reserveFacultativePrecedent + reserveFacultative;
+
+  // Préparation des informations pour les associés
+  const totalParts = associes.reduce((sum, a) => sum + (a.nombreParts || 0), 0);
+  
+  // Récupération des dates formattées
+  const dateReunion = documentInfo.dateReunion ? new Date(documentInfo.dateReunion).toLocaleDateString('fr-FR') : '';
+  const dateCloture = documentInfo.dateCloture ? new Date(documentInfo.dateCloture).toLocaleDateString('fr-FR') : '';
+  
+  // --- Création du document DOCX ---
+  const doc = new Document({
+    sections: [
+      // Première page (Page de garde)
+      {
+        properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `PROCÈS-VERBAL DE L'ASSEMBLÉE GÉNÉRALE MIXTE`,
+                bold: true,
+                size: 28,
+              })
+            ],
+            heading: HeadingLevel.HEADING_1,
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${societeInfo.raisonSociale || 'Société'}`,
+                bold: true,
+                size: 28,
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${societeInfo.formeJuridique || ''} au capital de ${formatMontant(societeInfo.capital || 0)} DHS`,
+                size: 24,
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Siège social : ${societeInfo.adresse || ''}`,
+                size: 24,
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `ICE : ${societeInfo.ice || ''} - RC : ${societeInfo.rc || ''}`,
+                size: 24
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 400, after: 400 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `EN DATE DU ${dateReunion}`,
+                bold: true,
+                size: 28,
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 600, after: 200 }
+          }),
+        ]
+      },
+      
+      // Deuxième page et suivantes
+      {
+        properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+        children: [
+          // Titre de la société
+          new Paragraph({ 
+            children: [
+              new TextRun({ text: societeInfo.raisonSociale, bold: true, color: 'C00000' }), 
+              new TextRun(' ('), 
+              new TextRun({ text: societeInfo.formeJuridique, color: 'C00000' }), 
+              new TextRun(')')
+            ], 
+            alignment: AlignmentType.CENTER 
+          }),
+          
+          // Informations société
+          new Paragraph({ 
+            children: [new TextRun(`Au capital de ${formatMontant(societeInfo.capital)} DHS`)],
+            alignment: AlignmentType.CENTER
+          }),
+          
+          new Paragraph({ 
+            children: [new TextRun(`Siège social : ${societeInfo.adresse}`)],
+            alignment: AlignmentType.CENTER
+          }),
+          
+          new Paragraph({ 
+            children: [new TextRun(`RC : ${societeInfo.rc} - ICE : ${societeInfo.ice}`)],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 }
+          }),
+          
+          // Titre du PV
+          new Paragraph({ 
+            children: [new TextRun({ text: `PROCÈS-VERBAL DE L'ASSEMBLÉE GÉNÉRALE MIXTE EN DATE DU ${dateReunion}`, bold: true })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 }
+          }),
+          
+          // Corps du texte
+          new Paragraph({
+            children: [
+              new TextRun(`Le ${dateReunion} à ${documentInfo.heureReunion || '10h00'}, les associés de la société ${societeInfo.raisonSociale} se sont réunis en Assemblée Générale Mixte au siège de la société, sur convocation de la gérance.`)
+            ],
+            spacing: { after: 200 }
+          }),
+          
+          // Liste des associés présents
+          new Paragraph({
+            children: [new TextRun({ text: `Les associés présents sont :`, bold: true })],
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          // Création des paragraphes pour chaque associé
+          ...associes.map(associe => 
+            new Paragraph({
+              children: [
+                new TextRun(`- ${associe.prenom || ''} ${associe.nom || ''}, titulaire de ${associe.nombreParts} parts sociales.`)
+              ],
+              spacing: { before: 100, after: 100 }
+            })
+          ),
+          
+          // Bureau de l'assemblée
+          new Paragraph({
+            children: [new TextRun({ text: `Bureau de l'assemblée :`, bold: true })],
+            spacing: { before: 300, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`L'assemblée est présidée par ${presidentNom}.`)
+            ],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`${secretaireNom} est désigné(e) comme secrétaire de séance.`)
+            ],
+            spacing: { after: 300 }
+          }),
+          
+          // Ordre du jour
+          new Paragraph({
+            children: [new TextRun({ text: `Ordre du jour :`, bold: true })],
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [new TextRun(`1. Lecture et approbation du rapport de gestion.`)],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [new TextRun(`2. Lecture et approbation des comptes annuels de l'exercice clos le ${dateCloture}.`)],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [new TextRun(`3. Affectation du résultat au report a nouveau et Répartition de dividendes sur les associés.`)],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [new TextRun(`4. Quitus au gérant.`)],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [new TextRun(`5. Questions diverses.`)],
+            spacing: { after: 400 }
+          }),
+          
+          // PREMIÈRE RÉSOLUTION
+          new Paragraph({
+            children: [new TextRun({ text: `PREMIÈRE RÉSOLUTION`, bold: true })],
+            spacing: { before: 300, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`Après lecture du rapport de gestion, l'Assemblée Générale approuve ledit rapport.`)
+            ],
+            spacing: { after: 300 }
+          }),
+          
+          // DEUXIÈME RÉSOLUTION
+          new Paragraph({
+            children: [new TextRun({ text: `DEUXIÈME RÉSOLUTION`, bold: true })],
+            spacing: { before: 300, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`Après lecture des comptes annuels, l'Assemblée Générale approuve les comptes de l'exercice clos le ${dateCloture} faisant apparaître un résultat de `),
+              redText(`${formatMontant(montantResultat)}`),
+              new TextRun(` DHS.`)
+            ],
+            spacing: { after: 300 }
+          }),
+          
+          // TROISIÈME RÉSOLUTION
+          new Paragraph({
+            children: [new TextRun({ text: `TROISIÈME RÉSOLUTION`, bold: true })],
+            spacing: { before: 300, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`L'Assemblée générale décide d'affecter le montant de `),
+              redText(`${formatMontant(reportANouveau)}`),
+              new TextRun(` DHS au report a nouveau et d'affecter le montant de `),
+              redText(`${formatMontant(reserveStatutaire)}`),
+              new TextRun(` DHS au réserve légale statutaire et d'affecter le montant de `),
+              redText(`${formatMontant(reserveFacultative)}`),
+              new TextRun(` DHS au réserve légale facultative et de répartir le montant de `),
+              redText(`${formatMontant(montantDividendes)}`),
+              new TextRun(` DHS sous forme de dividendes au profit des associés.`)
+            ],
+            spacing: { after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`Suite à cette décision, la répartition des dividendes sera comme suit :`)
+            ],
+            spacing: { after: 200 }
+          }),
+          
+          // Dividendes par associé
+          ...associes.map(associe => {
+            const montant = associe.montantDividende ?? 0;
+            const nombreParts = associe.nombreParts || 0;
+            return new Paragraph({
+              children: [
+                new TextRun({ text: `${associe.prenom || ''} ${associe.nom || ''} : `, bold: true }),
+                redText(`${formatMontant(montant)}`),
+                new TextRun(` DHS (${nombreParts} parts)`)
+              ],
+              spacing: { before: 100, after: 100 },
+              indent: { left: 720 }
+            });
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`La nouvelle situation deviendra comme suit :`)
+            ],
+            spacing: { before: 200, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({ text: `** Report à nouveau : `, bold: true }),
+              redText(`${formatMontant(reportANouveauFinal)}`),
+              new TextRun(` DHS`)
+            ],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({ text: `** Réserve légale statutaire : `, bold: true }),
+              redText(`${formatMontant(reserveStatutaireFinal)}`),
+              new TextRun(` DHS`)
+            ],
+            spacing: { after: 100 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({ text: `** Réserve légale facultative : `, bold: true }),
+              redText(`${formatMontant(reserveFacultativeFinal)}`),
+              new TextRun(` DHS`)
+            ],
+            spacing: { after: 300 }
+          }),
+          
+          // QUATRIÈME RÉSOLUTION
+          new Paragraph({
+            children: [new TextRun({ text: `QUATRIÈME RÉSOLUTION`, bold: true })],
+            spacing: { before: 300, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`L'Assemblée Générale donne quitus entier et sans réserve à la gérance pour sa gestion au titre de l'exercice ${documentInfo.exercice || '2023'}.`)
+            ],
+            spacing: { after: 300 }
+          }),
+          
+          // CINQUIÈME RÉSOLUTION
+          new Paragraph({
+            children: [new TextRun({ text: `CINQUIÈME RÉSOLUTION`, bold: true })],
+            spacing: { before: 300, after: 200 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun(`Plus rien n'étant à l'ordre du jour et personne ne demandant la parole, la séance est levée.`)
+            ],
+            spacing: { after: 300 }
+          }),
+          
+          // Signatures
+          new Paragraph({
+            children: [
+              new TextRun(`De tout ce que dessus, il a été dressé le présent procès-verbal qui, après lecture, a été signé par le président et le secrétaire.`)
+            ],
+            spacing: { before: 400, after: 400 }
+          }),
+          
+          // Signatures
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Le président de séance`, bold: true })
+            ],
+            alignment: AlignmentType.LEFT,
+            spacing: { before: 600, after: 800 }
+          }),
+          
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Le secrétaire de séance`, bold: true })
+            ],
+            alignment: AlignmentType.RIGHT
+          })
+        ]
+      }
+    ]
+  });
+
+  // Génération du document
+  try {
+    const buffer = await Packer.toBuffer(doc);
+    fs.writeFileSync(outputPath, buffer);
+    console.log('Document DOCX mixte généré avec succès:', outputPath);
+    return true;
+  } catch (error) {
+    console.error('Erreur lors de la génération du document DOCX mixte:', error);
+    throw error;
+  }
+}
