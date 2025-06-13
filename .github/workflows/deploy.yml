@@ -1,0 +1,163 @@
+name: Deploy PV-Manager
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement de déploiement'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+jobs:
+  test:
+    name: Tests et validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Installation des dépendances
+        run: npm ci
+        
+      - name: Vérification des types TypeScript
+        run: npm run typecheck
+        
+      - name: Exécution des tests unitaires
+        run: npm test
+
+  build:
+    name: Build de l'application
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Installation des dépendances
+        run: npm ci
+        
+      - name: Génération du Prisma client
+        run: npx prisma generate
+        
+      - name: Build Next.js
+        run: npm run build
+      
+      - name: Compression des fichiers
+        run: tar -czf build.tar.gz .next node_modules public package.json next.config.js prisma src
+      
+      - name: Stockage des artefacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-files
+          retention-days: 1
+
+  deploy-staging:
+    name: Déploiement sur Staging
+    needs: build
+    if: github.event.inputs.environment == 'staging' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      STAGING_HOST: ${{ secrets.STAGING_HOST }}
+    steps:
+      - name: Récupération des artefacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-files
+      
+      - name: Configuration SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ env.SSH_KEY }}
+          known_hosts: ${{ env.KNOWN_HOSTS }}
+          
+      - name: Déploiement sur le serveur Staging
+        run: |
+          scp build.tar.gz $SSH_USER@$STAGING_HOST:/tmp/
+          ssh $SSH_USER@$STAGING_HOST "
+            mkdir -p /opt/pv-manager-staging
+            tar -xzf /tmp/build.tar.gz -C /opt/pv-manager-staging
+            cd /opt/pv-manager-staging
+            export NODE_ENV=production
+            chmod +x update-nextauth.sh
+            ./update-nextauth.sh
+            docker compose -f docker-compose.vps.yml down
+            docker compose -f docker-compose.vps.yml up -d --build
+            rm /tmp/build.tar.gz
+          "
+
+  deploy-production:
+    name: Déploiement sur Production
+    needs: build
+    if: github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    env:
+      SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+      WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+    environment:
+      name: production
+      url: https://pv-manager.example.com
+    steps:
+      - name: Récupération des artefacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-files
+      
+      - name: Configuration SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ env.SSH_KEY }}
+          known_hosts: ${{ env.KNOWN_HOSTS }}
+          
+      - name: Déploiement sur le serveur Production
+        run: |
+          scp build.tar.gz $SSH_USER@$PRODUCTION_HOST:/tmp/
+          ssh $SSH_USER@$PRODUCTION_HOST "
+            mkdir -p /opt/pv-manager
+            tar -xzf /tmp/build.tar.gz -C /opt/pv-manager
+            cd /opt/pv-manager
+            export NODE_ENV=production
+            chmod +x update-nextauth.sh
+            ./update-nextauth.sh
+            
+            # Sauvegarde de la base de données avant mise à jour
+            chmod +x backup-db.sh
+            ./backup-db.sh
+            
+            docker compose -f docker-compose.vps.yml down
+            docker compose -f docker-compose.vps.yml up -d --build
+            rm /tmp/build.tar.gz
+            
+            # Exécution du script de vérification post-déploiement
+            chmod +x monitor-app.sh
+            ./monitor-app.sh
+          "
+      
+      - name: Notification Slack de déploiement
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ env.WEBHOOK_URL }}
+          SLACK_CHANNEL: deployments
+          SLACK_MESSAGE: ':rocket: *PV-Manager* déployé en production avec succès!'
+          SLACK_COLOR: good
